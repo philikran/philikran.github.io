@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<!-- https://blog.couchbase.com/sync-with-couchbase-using-only-angularjs-and-pouchdb -->
+<html ng-app="app6" ng-cloak>
+	<head>
+		<title>angularJS Tut</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<link href="https://bootswatch.com/3/paper/bootstrap.min.css" rel="stylesheet">
+		<link href="https://use.fontawesome.com/releases/v5.0.6/css/all.css" rel="stylesheet">
+		<link href="css\custom.css" rel="stylesheet">
+	</head>
+	<body>
+		<script type="text/ng-template" id="/addtankenmodal.html">
+			<div class="modal-header">
+			   <button type="button" class="close" data-dismiss="modal" aria-hidden="true" ng-click="base.cancel()">&times;</button>
+			  <h3>Neues Fahrzeug</h3>
+			  <!-- hThis is the title -->
+			</div>
+			<div class="modal-body">
+				<form name="form" class="form-horizontal" ng-submit="base.addFahrzeug(form.$valid)" novalidate>
+					<fieldset>
+						<!-- <legend>Legend</legend> -->
+						<div class="form-group" ng-class="{'has-error' : form.inputName.$invalid  && base.submitted }">
+							<label for="inputName" class="col-lg-2 control-label">Name*</label>
+							<div class="col-lg-10">
+								<input type="text" id="inputName" name="inputName" class="form-control" ng-model="base.formData.name" placeholder="Fahrzeugtyp" ng-required="true">
+								<span ng-show="form.inputName.$invalid && !form.inputName.$pristine ">Name muss vorhanden sein.</span>
+							</div>
+						</div>
+						<div class="form-group" ng-class="{'has-error' : form.inputBuildyear.$invalid && base.submitted}">
+							<label for="inputBuildyear" class="col-lg-2 control-label">Baujahr*</label>
+							<div class="col-lg-10">
+									<!-- ng-required="true"  -->
+								<input type="number" id="inputBuildyear" name="inputBuildyear" class="form-control" ng-required="true" ng-model="base.formData.baujahr" placeholder="{{base.currentYear}}" min="1950" max="{{base.currentYear}}">
+								<span ng-show="form.inputBuildyear.$error.min && !form.inputBuildyear.$pristine">Baujahr muss mindestens 1950 sein</span>
+								<span ng-show="form.inputBuildyear.$error.max && !form.inputBuildyear.$pristine">Baujahr darf nicht in der Zukunft liegen!</span>
+							</div>
+						</div>
+						<div class="form-group">
+							<div class="col-lg-10 col-lg-offset-2">
+								<button type="reset" class="btn btn-default" ng-click="base.cancel()">Cancel</button>
+								<button type="submit" class="btn btn-primary">Submit</button>
+							</div>
+						</div>
+					</fieldset>
+				</form>
+			</div>
+		</script>
+		<script type="text/ng-template" id="/wettermodal.html">
+			<div class="modal-header">
+			   <button type="button" class="close" data-dismiss="modal" aria-hidden="true" ng-click="base.cancel()">&times;</button>
+			</div>
+			<div class="modal-body">
+				<table class="table table-striped table-hover ">
+					<tr ng-repeat="(header, value) in base.wetter">
+						<td>{{header}}</td>
+						<td>{{value}}</td>
+					</tr>
+				</table>
+			</div>
+			<div class="modal-footer">
+				<button class="btn btn-primary" ng-click="base.ok()">OK</button>
+				<button class="btn btn-warning" ng-click="base.cancel()">Cancel</button>
+			</div>
+		</script>
+		<script type="text/ng-template" id="/modal.html">
+			<div class="modal-header">
+			   <button type="button" class="close" data-dismiss="modal" aria-hidden="true" ng-click="base.cancel()">&times;</button>
+
+			  <!-- <h1>This is the title</h1> -->
+			  This is the title
+			</div>
+			<div class="modal-body">
+				Hi, I'm a modal!
+				<p>{{base.editId | json}}</p>
+				<h3>Kommentar hinzufügen</h3>
+				<form name="messageComment" ng-submit="base.addComment(base.newCommentText, 'pkranich')">
+					<textarea class="comment-box-input" type="text" id="newComment" ng-model="base.newCommentText" placeholder="Schreiben Sie einen Kommentar"  /><br>
+					<input type="submit" class="btn btn-success" value="Speichern" ng-disabled="base.newCommentText.length == 0"/>
+				</form>
+				<h3>Aktivitäten</h3>
+				<div
+					class="panel panel-default"
+					ng-repeat="comment in base.item.comments | orderBy:'creationdate' track by $index">
+					<div class="panel-heading">
+						<strong>{{comment.author}}</strong> <span class="text-muted">{{comment.creationdate | date:'dd.MM.yyyy hh:mm'}} Uhr</span>
+					</div>
+					<div class="panel-body">
+						{{comment.text}}
+					</div><!-- /panel-body -->
+				</div><!-- /panel panel-default -->
+			</div>
+			<!-- <div class="modal-footer"> -->
+				<!-- <button class="btn btn-primary" type="button" ng-click="base.ok()">OK</button> -->
+				<!-- <button class="btn btn-warning" type="button" ng-click="base.cancel()">Cancel</button> -->
+			<!-- </div> -->
+		</script>
+		<script type="text/ng-template" id="/test.html">
+			<div uib-alert ng-repeat="alert in base.alerts" 
+				class="alert alert-dismissible"
+				ng-class="'alert-' + (alert.type || 'warning')"
+				dismiss-on-timeout="{{2000 + $index*1000 }}"
+				close="base.closeAlert($index)"
+				>
+				<span ng-bind-html="alert.html"></span> <!-- for html -->
+				{{alert.msg}}  <!-- for text -->
+			</div>
+			<button type="button" class='btn btn-default' ng-click="base.addAlert()">Add Alert</button>
+		</script>
+		<script type="text/ng-template" id="/tanken.html">
+			<div class="row">
+				<div class="col-lg-12">
+						<a href="" class="btn btn-primary" ng-click="base.addModal()"><i class="fas fa-plus"></i> Add</a>
+				</div>
+			</div>
+			<div class="row">
+				<div class="col-lg-12">
+					<table class="table table-striped table-hover">
+						<thead>
+							<tr>
+								<th>#</th>
+								<th>Name</th>
+								<th>Baujahr</th>
+								<th><!--edit--></th>
+								<th><!-- delete --></th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr ng-repeat="fahrzeug in base.fahrzeuge">
+								<th scope="row">{{$index+1}}</th>
+								<td>{{fahrzeug.name}}</td>
+								<td>{{fahrzeug.baujahr}}</td>
+								<td><a href="#/fahrzeug/{{fahrzeug._id}}"><i class="fas fa-pen-square" aria-hidden="true"></i></a></td>
+								<td><a href="" ng-click="base.delete(fahrzeug._id)"><i class="fas fa-times fa-lg"></i></a></td>
+							</tr>
+					</table>
+				</div>
+			</div>
+		</script>
+		<script type="text/ng-template" id="/wetter.html">
+			<div class="row">
+					<div class="col-lg-12">
+						<table class="table table-striped table-hover">
+							<thead>
+								<tr>
+									<!-- <th>#</th> -->
+									<th>Id</th>
+									<th>Datum</th>
+									<th>Temperatur</th>
+								</tr>
+							</thead>
+							<tbody>
+								<!-- <tr ng-repeat="wett in base.allwetter" ng-click="base.showWetter(wett._id)"> -->
+								<tr ng-repeat="wett in base.allwetter.slice(((base.bigCurrentPage-1)*base.itemsPerPage),(base.bigCurrentPage*base.itemsPerPage))" ng-click="base.showWetter(wett._id)">
+									<!-- <th scope="row">{{$index+1}}</th> -->
+									<td>{{wett._id}}</td>
+									<td>{{wett.date}}</td>
+									<td>{{wett.currenttemp}}</td>
+									</tr>
+						</table>
+						View <select ng-model="base.viewby" ng-options="x for x in base.myValues" ng-change="base.setItemsPerPage(base.viewby)">
+							</select> records at a time.
+
+						<!-- <div>{{base.bigTotalItems}} - {{base.bigCurrentPage}} - {{base.itemsPerPage}}: {{((base.bigCurrentPage-1)*base.itemsPerPage)}},{{(base.bigCurrentPage*base.itemsPerPage)}}</div> -->
+						<ul uib-pagination total-items="base.bigTotalItems" ng-model="base.bigCurrentPage" 
+							max-size="base.maxSize" class="pagination-sm" boundary-links="true" 
+							num-pages="numPages" items-per-page="base.itemsPerPage"
+							first-text="Anfang" last-text="Ende" next-text="zurück" previous-text="vor"
+							></ul>
+					</div>
+				</div>
+		</script>
+		<script type="text/ng-template" id="/wetterstats.html">
+			<div class="row">
+				<div class="col-lg-6">
+					<div class="panel panel-default forecast">
+						<div class="panel-heading">
+							<h3 class="panel-title">Aktuell {{base.actual.date | date:'dd.MM.yyyy'}}</h3>
+						</div>
+						<div class="panel-body">
+							<div class="row">
+								<div class="col-md-6">
+									<div>condition: <span ng-bind="base.actual.currentcond"></span></div>
+									<div>current: <span ng-bind="base.actual.currenttemp"></span></div>
+									<div>high: <span ng-bind="base.actual.hightemp"></span></div>
+									<div>low: <span ng-bind="base.actual.lowtemp"></span></div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-lg-6">
+					<div class="panel panel-default forecast">
+						<div class="panel-heading">
+							<h3 class="panel-title">Forecast {{base.forecast.date | date:'dd.MM.yyyy'}}</h3>
+						</div>
+						<div class="panel-body">
+							<div class="row">
+								<div class="col-md-6">
+									<div>condition: <span ng-bind="base.forecast.condition"></span></div>
+									<div>high: <span ng-bind="base.forecast.hightemp"></span></div>
+									<div>low: <span ng-bind="base.forecast.lowtemp"></span></div>
+								</div>
+								<div class="col-md-6">
+									<img src="{{base.forecast.url}}" alt="{{base.forecast.condition}}" class="pull-right" style="max-width: 100px"></img>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-lg-6">
+					<div class="panel panel-default">
+						<div class="panel-heading">
+							<h3 class="panel-title">Wetterlage</h3>
+						</div>
+						<div class="panel-body">
+							<canvas id="doughnut" class="chart chart-doughnut"
+								chart-data="doughnut.data" chart-labels="doughnut.labels" chart-options="doughnut.options" >
+							</canvas> 
+						</div>
+					</div>
+				</div>
+				<div class="col-lg-6">
+					<div class="panel panel-default">
+						<div class="panel-heading">
+							<h3 class="panel-title">Temperaturkurve {{base.today | date:'dd.MM.yyyy'}} vs. {{base.yesterday | date:'dd.MM.yyyy'}}</h3>
+						</div>
+						<div class="panel-body">
+								<canvas id="line" class="chart chart-line" chart-data="line.data"
+								chart-labels="line.labels" chart-series="line.series" chart-options="line.options"
+								chart-dataset-override="datasetOverride" chart-click="onClick">
+							</canvas>
+						</div>
+					</div>
+				</div>
+				<div class="col-lg-12">
+					<!-- <div style="max-width:500px">
+						<canvas id="doughnut" class="chart chart-doughnut"
+							chart-data="doughnut.data" chart-labels="doughnut.labels" chart-options="doughnut.options" >
+						</canvas> 
+					</div> -->
+					<table class="table table-striped table-hover">
+						<thead>
+							<tr>
+								<!-- <th>#</th> -->
+								<th>Id</th>
+								<th>Datum</th>
+								<th>Temperatur</th>
+							</tr>
+						</thead>
+						<tbody>
+							<!-- <tr ng-repeat="wett in base.allwetter" ng-click="base.showWetter(wett._id)"> -->
+							<tr ng-repeat="wett in base.allwetter">
+								<!-- <th scope="row">{{$index+1}}</th> -->
+								<td>{{wett._id}}</td>
+								<td>{{wett.date}}</td>
+								<td>{{wett.currenttemp}}</td>
+								</tr>
+					</table>
+				</div>
+			</div>
+		</script>
+		<script type="text/ng-template" id="/fahrzeug.html">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal" aria-hidden="true" ng-click="base.cancel()">&times;</button>
+				Fahrzeug
+			</div>
+			<div class="modal-body">
+				<p>{{base.fahrzeug._id}}</p>
+				<p>{{base.fahrzeug.name}}</p>
+				<p>{{base.fahrzeug.baujahr}}</p>
+				<p>{{base.fahrzeug.creation_date | date:'dd.MM.yyyy HH:mm:ss'}}</p>
+			</div>
+		</script>
+		<script type="text/ng-template" id="/list.html">
+			<div class="row">
+				<div class="col-lg-12">
+					<a href="#/item" class="btn btn-primary"><i class="fas fa-plus"></i> Add</a>
+				</div>
+			</div>
+			<div class="row">
+				<div class="col-lg-12">
+					<table class="table table-striped table-hover">
+						<thead>
+							<tr>
+								<th>#</th>
+								<th>Datum</th>
+								<th>Kilometerstand</th>
+								<th>Liter</th>
+								<th>Preis</th>
+								<th>Preis/Liter</th>
+								<th><!--edit --></th>
+								<th><!--del --></th>
+								<th><!--editmodal --></th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr ng-repeat="item in base.items">
+								<th scope="row">{{$index+1}}</th>
+								<td>{{item.date | date:'dd.MM.yyyy'}}</td>
+								<td>{{item.kmStand}} km</td>
+								<td>{{item.liter | number:2}} l</td>
+								<td>{{item.preis | number:2}} €</td>
+								<td>{{item.preisProLiter | number:2}} €/l</td>
+								<td><a href="#/item/{{item._id}}/{{item._rev}}"><i class="fas fa-pen-square fa-lg" aria-hidden="true"></i></a></td>
+								<td><a href="" ng-click="base.delete(item._id, item._rev)"><i class="fas fa-times fa-lg"></i></a></td>
+								<td><a href="" ng-click="base.editModal(item._id, item._rev)">editmodal</a></td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</script>
+		<script  type="text/ng-template" id="/item.html">
+			<div class="row">
+				<div class="col-lg-6">
+					<form class="form-horizontal" ng-submit="base.save(base.newItem.date, base.newItem.kmStand, base.newItem.liter, base.newItem.preisProLiter)">
+						<fieldset>
+							<legend>{{base.message}}</legend>
+							<div class="form-group">
+								<label for="date" class="col-lg-2 control-label">Datum</label>
+								<div class="col-lg-10">
+										<input type="date" id="date" class="form-control" ng-model="base.newItem.date" ng-required="true"></input>
+								</div>
+							</div>
+							<div class="form-group">
+								<label for="kmStand" class="col-lg-2 control-label">Kilometer</label>
+								<div class="col-lg-10">
+										<input type="text" id="kmStand" class="form-control" ng-model="base.newItem.kmStand" ng-attr-placeholder="{{base.placeholderNewItem.kmStand}}" ng-required="true"></input>
+								</div>
+							</div>
+
+							<div class="form-group">
+								<label class="col-lg-2 control-label">Kilometer-Typ</label>
+								<div class="col-lg-10">
+									<div class="radio">
+										<label>
+											<input type="radio" ng-model="base.newItem.kmTyp" value="kmtotal" name="kmTyp" checked id="optionsRadios1" checked>
+											Kilometer gesamt
+										</label>
+									</div>
+									<div class="radio">
+										<label>
+											<input type="radio" ng-model="base.newItem.kmTyp" value="kmtrip" name="kmTyp" id="optionsRadios2">
+											Kilometer trip
+										</label>
+									</div>
+								</div>
+							</div>
+
+							<div class="form-group">
+								<label for="liter" class="col-lg-2 control-label">Liter getankt</label>
+								<div class="col-lg-10">
+										<input type="text" id="liter" class="form-control" ng-model="base.newItem.liter" ng-model-options="{ debounce: 500 }" ng-required="true" ng-attr-placeholder="{{base.placeholderNewItem.liter}}">Liter</input>
+								</div>
+							</div>
+
+							<div class="form-group">
+									<label for="preisProLiter" class="col-lg-2 control-label">Preis/l</label>
+									<div class="col-lg-10">
+											<input type="text" id="preisProLiter" class="form-control" ng-model="base.newItem.preisProLiter" ng-model-options="{ debounce: 500 }" ng-required="true" ng-attr-placeholder="{{base.placeholderNewItem.preisProLiter}}">€/l</input>
+											<span class="help-block">Total: {{base.newItem.preisProLiter*base.newItem.liter|number:2}} €</span>
+									</div>
+								</div>
+								
+							<div class="form-group">
+								<div class="col-lg-10 col-lg-offset-2">
+									<button type="reset" class="btn btn-default">Cancel</button>
+									<input type="submit" class="btn btn-primary" value="{{base.savebuttonText}}" ng-disabled="addForm.$invalid" />
+								</div>
+							</div>
+
+						</fieldset>
+					</form>
+				</div>
+			</div>
+<!-- Todo: do something -->
+		</script>
+		<div id="loader"  ng-show="$root.isLoading"></div>
+		<div class="container" >
+		<!-- ng-hide="$root.isLoading"> -->
+			<!-- <div class="row">
+				<div class="col-lg-12">
+					<div ng-show="$root.online">You're online</div>
+					<div ng-hide="$root.online">You're offline</div>
+				</div>
+			</div> -->
+			<div class="row">
+				<div class="col-lg-12">
+					<nav class="navbar navbar-default" ng-controller="NavigationController">
+						<div class="container-fluid">
+							<div class="navbar-header">
+								<button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" ng-click="isCollapsed = !isCollapsed; log();">
+									<span class="icon-bar"></span>
+									<span class="icon-bar"></span>
+									<span class="icon-bar"></span>
+								</button>
+								<a href="#" class="navbar-brand hidden-xs">
+									<img src="/img/gas2.png">
+								</a>
+								
+								<a href="#" class="navbar-brand visible-xs">
+									<img src="/img/gas1.png">
+								</a>
+								<!-- <a class="navbar-brand" href="#" >savefull-tanken</a> -->
+							</div>
+						
+							<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1" uib-collapse="isCollapsed">
+								<ul class="nav navbar-nav">
+									<li ng-click="isCollapsed = true;" ng-class="{active: isActive('/')}"><a href="#/">Start</a></li>
+									<li ng-click="isCollapsed = true;" ng-class="{active: isActive('/modal')}"><a href="#/modal">Modal</a></li>
+									<li ng-click="isCollapsed = true;" ng-class="{active: isActive('/test')}"><a href="#/test">Test</a></li>
+									<li ng-click="isCollapsed = true;" ng-class="{active: isActive('/item')}"><a href="#/item">Add</a></li>
+									<li ng-click="isCollapsed = true;" ng-class="{active: isActive('/list')}"><a href="#/list">Pouch-Liste</a></li>
+									<li ng-click="isCollapsed = true;" ng-class="{active: isActive('/tanken')}"><a href="#/tanken"><i class="fa fa-align-justify"></i> Mongo-Liste</a></li>
+									<li ng-click="isCollapsed = true;" ng-class="{active: isActive('/static')}"><a href="#/static"><span class="fa fa-search"></span> Static</a></li>
+									<li ng-click="isCollapsed = true;" ng-class="{active: isActive('/wetter')}"><a href="#/wetter"><span class="fa fa-sun"></span> Wetter</a></li>
+									<li ng-click="isCollapsed = true;" ng-class="{active: isActive('/wetterstats')}"><a href="#/wetterstats"><span class="fa fa-chart-bar"></span> Wetterstatistik</a></li>
+									<li ng-click="addAlert('testallert');"><a href><span class="fa fa-bell"></span> Alert</a></li>
+								</ul>
+							</div>
+						</div>
+					</nav>
+				</div>
+				<div class="col-lg-12" ng-controller="GlobalAlertController as alertCtrl">
+					<div uib-alert ng-repeat="alert in $root.alerts" 
+						class="alert alert-dismissible repeat-item"
+						ng-class="'alert-' + (alert.type || 'warning')"
+						dismiss-on-timeout="{{2000 + $index*1000 }}"
+						close="alertCtrl.closeAlert($index)"
+						>
+						<span ng-bind-html="alert.html"></span>
+						{{alert.msg}}
+					</div>
+				</div>
+			</div>
+			<!--<div editable-input></div>-->
+			<div ng-view></div>
+		</div>
+		<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.8/angular.min.js"></script>
+		<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.8/angular-route.min.js"></script>
+		<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.8/angular-animate.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/ngStorage/0.3.11/ngStorage.min.js "></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/pouchdb/6.1.0/pouchdb.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.1/Chart.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore-min.js"></script>
+		<script src="js\ui-bootstrap-tpls-2.5.0.min.js"></script>
+		<script src="js\chart\angular-chart.js"></script>
+		
+		<script src="js\app.js"></script>
+	</body>
+</html>
